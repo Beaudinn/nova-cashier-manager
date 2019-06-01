@@ -36,8 +36,8 @@
                             this.charges = response.data.charges;
                             this.plans = response.data.plans;
 
-                            this.newPlan = response.data.subscription ? response.data.subscription.stripe_plan : null;
-
+                            this.newPlan = response.data.subscription ? response.data.subscription.plan : null;
+                            console.log(this.newPlan);
                             this.loading = false;
                         });
             },
@@ -151,8 +151,8 @@
                 <div class="w-3/4 py-4">
                     <select v-model="newPlan" class="form-control form-select">
                         <option value="" disabled="disabled" selected="selected">Choose New Plan</option>
-                        <option :value="plan.id" v-for="plan in plans">
-                            {{plan.id}} ({{plan.price / 100}} {{plan.currency}} / {{plan.interval}})
+                        <option :value="plan.name" v-for="plan in plans">
+                            {{plan.name}} ({{plan.amount.amount / 100}} {{plan.amount.currency}} / {{plan.interval}})
                         </option>
                     </select>
 
@@ -165,7 +165,7 @@
 
             <div class="flex border-b border-40" v-if="subscription">
                 <div class="w-1/4 py-4"><h4 class="font-normal text-80">Amount</h4></div>
-                <div class="w-3/4 py-4"><p class="text-90">{{subscription.plan_amount / 100}} ({{subscription.plan_currency}}) / {{subscription.plan_interval}}</p></div>
+                <div class="w-3/4 py-4"><p class="text-90">{{subscription.plan_amount.amount / 100}} ({{subscription.plan_amount.currency}}) / {{subscription.plan_interval}}</p></div>
             </div>
 
             <div class="flex border-b border-40" v-if="subscription">

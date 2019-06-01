@@ -39,7 +39,7 @@
 
 <template>
     <div>
-        <loading-view :loading="loading">
+        <loading-card :loading="loading" class="mb-6 py-3 px-6">
             <p class="text-90" v-if="!subscription">
                 User has no subscription.
             </p>
@@ -48,7 +48,7 @@
                 <div class="w-1/4 py-4"><h4 class="font-normal text-80">Plan</h4></div>
                 <div class="w-3/4 py-4"><p class="text-90">
                     {{subscription.plan}}
-                    ({{subscription.plan_amount / 100}} {{subscription.plan_currency}} / {{subscription.plan_interval}})
+                    ({{subscription.plan_amount.amount / 100}} {{subscription.plan_currency.currency}} / {{subscription.plan_interval}})
                 </p></div>
             </div>
 
@@ -76,7 +76,7 @@
                     </p>
                 </div>
             </div>
-        </loading-view>
+        </loading-card>
 
 
     </div>

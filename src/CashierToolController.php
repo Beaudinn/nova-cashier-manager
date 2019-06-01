@@ -2,15 +2,13 @@
 
 namespace Themsaid\CashierTool;
 
-use Stripe\Plan;
-use Stripe\Refund;
-use Stripe\Stripe;
-use Stripe\Dispute;
+use Laravel\Cashier\Plan\Plan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Config\Repository;
 use Illuminate\Routing\Controller;
-use Stripe\Subscription as StripeSubscription;
+use Laravel\Cashier\Plan\Contracts\PlanRepository;
+use Laravel\Cashier\Subscription as MollieStripeSubscription;
 
 class CashierToolController extends Controller
 {
@@ -36,7 +34,6 @@ class CashierToolController extends Controller
     public function __construct(Repository $config)
     {
         $this->middleware(function ($request, $next) use ($config) {
-            Stripe::setApiKey($config->get('services.stripe.secret'));
 
             $this->stripeModel = $config->get('services.stripe.model');
 
@@ -57,7 +54,10 @@ class CashierToolController extends Controller
     {
         $billable = (new $this->stripeModel)->find($billableId);
 
+
         $subscription = $billable->subscription($this->subscriptionName);
+
+
 
         if (! $subscription) {
             return [
@@ -65,15 +65,16 @@ class CashierToolController extends Controller
             ];
         }
 
-        $stripeSubscription = StripeSubscription::retrieve($subscription->stripe_id);
-
+//        var_dump($billable->invoices()); die();
+        //$stripeSubscription = MollieSubscription::retrieve($subscription->stripe_id);
+        $stripeSubscription = $subscription;
         return [
             'user' => $billable->toArray(),
-            'cards' => request('brief') ? [] : $this->formatCards($billable->cards(), $billable->defaultCard()->id),
-            'invoices' => request('brief') ? [] : $this->formatInvoices($billable->invoicesIncludingPending()),
-            'charges' => request('brief') ? [] : $this->formatCharges($billable->asStripeCustomer()->charges()),
-            'subscription' => $this->formatSubscription($subscription, $stripeSubscription),
-            'plans' => request('brief') ? [] : $this->formatPlans(Plan::all(['limit' => 100])),
+            'cards' => [], //request('brief') ? [] : $this->formatCards($billable->cards(), $billable->defaultCard()->id),
+            'invoices' => [], // request('brief') ? [] : $this->formatInvoices($billable->invoices()),
+            'charges' => [], //request('brief') ? [] : $this->formatCharges($billable->asStripeCustomer()->charges()),
+            'subscription' => $this->formatSubscription($subscription),
+            'plans' => request('brief') ? [] : $this->formatPlans( app(PlanRepository::class)::all(['limit' => 100])),
         ];
     }
 
@@ -154,27 +155,27 @@ class CashierToolController extends Controller
      * @param  \Stripe\Subscription $stripeSubscription
      * @return array
      */
-    public function formatSubscription($subscription, $stripeSubscription)
+    public function formatSubscription($subscription)
     {
+
+
         return array_merge($subscription->toArray(), [
-            'plan_amount' => $stripeSubscription->plan->amount,
-            'plan_interval' => $stripeSubscription->plan->interval,
-            'plan_currency' => $stripeSubscription->plan->currency,
-            'plan' => $subscription->stripe_plan,
-            'stripe_plan' => $stripeSubscription->plan->id,
+            'plan_amount' => $subscription->plan()->amount(),
+            'plan_interval' => $subscription->plan()->interval(),
+            'plan_currency' => 'EUR',// $subscription->plan->amount->currency,
+            'plan' => $subscription->plan,
             'ended' => $subscription->ended(),
             'cancelled' => $subscription->cancelled(),
             'active' => $subscription->active(),
             'on_trial' => $subscription->onTrial(),
             'on_grace_period' => $subscription->onGracePeriod(),
-            'charges_automatically' => $stripeSubscription->billing == 'charge_automatically',
-            'created_at' => $stripeSubscription->billing_cycle_anchor ? Carbon::createFromTimestamp($stripeSubscription->billing_cycle_anchor)->toDateTimeString() : null,
-            'ended_at' => $stripeSubscription->ended_at ? Carbon::createFromTimestamp($stripeSubscription->ended_at)->toDateTimeString() : null,
-            'current_period_start' => $stripeSubscription->current_period_start ? Carbon::createFromTimestamp($stripeSubscription->current_period_start)->toDateString() : null,
-            'current_period_end' => $stripeSubscription->current_period_end ? Carbon::createFromTimestamp($stripeSubscription->current_period_end)->toDateString() : null,
-            'days_until_due' => $stripeSubscription->days_until_due,
-            'cancel_at_period_end' => $stripeSubscription->cancel_at_period_end,
-            'canceled_at' => $stripeSubscription->canceled_at,
+            'created_at' => $subscription->created_at ? $subscription->created_at->toDateTimeString() : null,
+            'ended_at' => null, // $stripeSubscription->ended_at ? Carbon::createFromTimestamp($stripeSubscription->ended_at)->toDateTimeString() : null,
+            'current_period_start' => $subscription->cycle_started_at ? $subscription->cycle_started_at->toDateString() : null,
+            'current_period_end' => $subscription->cycle_ends_at ? $subscription->cycle_ends_at->toDateString() : null,
+            'days_until_due' => null, //$stripeSubscription->days_until_due,
+            'cancel_at_period_end' => $subscription->ends_at,
+            'canceled_at' => $subscription->ends_at,
         ]);
     }
 
@@ -239,7 +240,7 @@ class CashierToolController extends Controller
                 'paid' => $charge->paid,
                 'status' => $charge->status,
                 'currency' => $charge->currency,
-                'dispute' => $charge->dispute ? Dispute::retrieve($charge->dispute) : null,
+                'dispute' => 0, //$charge->dispute ? Dispute::retrieve($charge->dispute) : null,
                 'failure_code' => $charge->failure_code,
                 'failure_message' => $charge->failure_message,
                 'created' => $charge->created ? Carbon::createFromTimestamp($charge->created)->toDateTimeString() : null,
@@ -255,13 +256,14 @@ class CashierToolController extends Controller
      */
     private function formatPlans($plans)
     {
-        return collect($plans->data)->map(function ($plan) {
+        return collect($plans)->map(function ($plan, $key) {
+
             return [
-                'id' => $plan->id,
-                'price' => $plan->amount,
-                'interval' => $plan->interval,
-                'currency' => $plan->currency,
-                'interval_count' => $plan->interval_count,
+                'name' => $plan->name(),
+                'amount' => $plan->amount(),
+                'interval' => $plan->interval(),
+                //'currency' => $plan->currency(),
+                //'interval_count' => $plan->interval_count(),
             ];
         })->toArray();
     }

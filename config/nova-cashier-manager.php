@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'subscription_name' => 'default'
+    'subscription_name' => 'main'
 ];
